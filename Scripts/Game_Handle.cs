@@ -109,6 +109,7 @@ public class Game_Handle : MonoBehaviour
         this.panel_play.SetActive(false);
         this.carrot.game.update_scores_player(this.score.get_currentScore());
         this.obj_main_board_bk.SetActive(false);
+        this.carrot.play_vibrate();
     }
 
     public void btn_show_user_login()
