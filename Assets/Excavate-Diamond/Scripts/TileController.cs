@@ -15,7 +15,7 @@ public class TileController : MonoBehaviour
     private static readonly Vector2 sizeSmall = Vector2.zero;
     private static readonly Vector2 sizeNormal = Vector2.one;
 
-    private static readonly Vector2[] adjacentDirection = new Vector2[] { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
+    private static readonly Vector2Int[] adjacentDirection = new Vector2Int[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
     private static TileController previousSelected = null;
 
@@ -39,6 +39,13 @@ public class TileController : MonoBehaviour
     }
 
     private void OnMouseDown()
+    {
+#if !ENABLE_INPUT_SYSTEM
+        HandlePress();
+#endif
+    }
+
+    public void HandlePress()
     {
         if (render.sprite == null || board.IsAnimating || GameObject.Find("Game").GetComponent<Game_Handle>().get_status_play()==false) return;
 
@@ -138,16 +145,12 @@ public class TileController : MonoBehaviour
 
     #region Adjacent
 
-    private TileController GetAdjacent(Vector2 castDir)
+    private TileController GetAdjacent(Vector2Int direction)
     {
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, castDir, render.size.x);
+        Vector2Int currentIndex = board.GetTileIndex(this);
+        if (currentIndex.x < 0) return null;
 
-        if (hit)
-        {
-            return hit.collider.GetComponent<TileController>();
-        }
-
-        return null;
+        return board.GetTileAtIndex(currentIndex + direction);
     }
 
     public List<TileController> GetAllAdjacentTiles()
@@ -166,27 +169,32 @@ public class TileController : MonoBehaviour
 
     #region Check Match
 
-    private List<TileController> GetMatch(Vector2 castDir)
+    private List<TileController> GetMatch(Vector2Int direction)
     {
         List<TileController> matchingTiles = new List<TileController>();
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, castDir, render.size.x);
 
-        while (hit)
+        Vector2Int currentIndex = board.GetTileIndex(this);
+        if (currentIndex.x < 0) return matchingTiles;
+
+        Vector2Int nextIndex = currentIndex + direction;
+        TileController otherTile = board.GetTileAtIndex(nextIndex);
+
+        while (otherTile != null)
         {
-            TileController otherTile = hit.collider.GetComponent<TileController>();
             if (otherTile.id != id || otherTile.IsDestroyed)
             {
                 break;
             }
 
             matchingTiles.Add(otherTile);
-            hit = Physics2D.Raycast(otherTile.transform.position, castDir, render.size.x);
+            nextIndex += direction;
+            otherTile = board.GetTileAtIndex(nextIndex);
         }
 
         return matchingTiles;
     }
 
-    private List<TileController> GetOneLineMatch(Vector2[] paths)
+    private List<TileController> GetOneLineMatch(Vector2Int[] paths)
     {
         List<TileController> matchingTiles = new List<TileController>();
 
@@ -209,8 +217,8 @@ public class TileController : MonoBehaviour
 
         List<TileController> matchingTiles = new List<TileController>();
 
-        List<TileController> horizontalMatchingTiles = GetOneLineMatch(new Vector2[2] { Vector2.up, Vector2.down });
-        List<TileController> verticalMatchingTiles = GetOneLineMatch(new Vector2[2] { Vector2.left, Vector2.right });
+        List<TileController> horizontalMatchingTiles = GetOneLineMatch(new Vector2Int[2] { Vector2Int.up, Vector2Int.down });
+        List<TileController> verticalMatchingTiles = GetOneLineMatch(new Vector2Int[2] { Vector2Int.left, Vector2Int.right });
 
         if (horizontalMatchingTiles != null) matchingTiles.AddRange(horizontalMatchingTiles);
 

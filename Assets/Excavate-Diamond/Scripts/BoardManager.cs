@@ -1,6 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class BoardManager : MonoBehaviour
 {
@@ -56,6 +59,30 @@ public class BoardManager : MonoBehaviour
     private TileController[,] tiles;
 
     private int combo;
+    private Camera cachedCamera;
+
+    private void Awake()
+    {
+        cachedCamera = Camera.main;
+    }
+
+    private void Update()
+    {
+        if (!TryGetPointerDownPosition(out Vector2 screenPosition)) return;
+
+        Camera activeCamera = cachedCamera != null ? cachedCamera : Camera.main;
+        if (activeCamera == null) return;
+
+        Vector3 worldPosition = activeCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -activeCamera.transform.position.z));
+        Collider2D hit = Physics2D.OverlapPoint(worldPosition);
+        if (hit == null) return;
+
+        TileController tile = hit.GetComponent<TileController>();
+        if (tile != null)
+        {
+            tile.HandlePress();
+        }
+    }
 
     public void reset()
     {
@@ -64,6 +91,34 @@ public class BoardManager : MonoBehaviour
 
         IsProcessing = false;
         IsSwapping = false;
+    }
+
+    private bool TryGetPointerDownPosition(out Vector2 screenPosition)
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+        {
+            screenPosition = Touchscreen.current.primaryTouch.position.ReadValue();
+            return true;
+        }
+
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            screenPosition = Mouse.current.position.ReadValue();
+            return true;
+        }
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetMouseButtonDown(0))
+        {
+            screenPosition = Input.mousePosition;
+            return true;
+        }
+#endif
+
+        screenPosition = Vector2.zero;
+        return false;
     }
 
     #region Generate
@@ -380,6 +435,18 @@ public class BoardManager : MonoBehaviour
         }
 
         return new Vector2Int(-1, -1);
+    }
+
+    public bool IsValidIndex(Vector2Int index)
+    {
+        return index.x >= 0 && index.x < size.x && index.y >= 0 && index.y < size.y;
+    }
+
+    public TileController GetTileAtIndex(Vector2Int index)
+    {
+        if (!IsValidIndex(index)) return null;
+
+        return tiles[index.x, index.y];
     }
 
     public Vector2 GetIndexPosition(Vector2Int index)
